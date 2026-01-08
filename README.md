@@ -1,32 +1,47 @@
 # N8N-Automation
-Estos proyectos son simples pruebas de concepto de automatización de procesos de ciberseguridad en N8N para aprender, practicar y experimentar con la capacidad de expansión e integración de los workflows orquestados por N8N.
+This projects are just PoC to learn, practice and experiment on both workflow automation (via code) and AI-integrated workflow automation.
+<br>
+I'm doing all of this by self-hosting both an N8N instance and an AI model (Ollama llama3) that works as a SOC analyst.
 <br><br>
 **🐧Linux Threat Hunter**
   <br>
-Este proyecto es un sistema SIEM automatizado, privado y procesado por IA local. 
+This project is a SIEM-LLM system intended to monitor and protect Linux Systems via log extraction and analysis. 
 <br>
-Implementa una solución automatizada para la protección de sistemas Arch Linux  <br>
-Este workflow orquestado por N8N vigila de forma periódica los registros de sistema de Linux (journalctl), extrae datos clave de ellos mediante parsing y utiliza un agente de IA Llama3 (hosteado localmente) para analizar heurísticamente cada evento en busca de amenazas y anomalías, asignando un valor numérico de riesgo en escala 1-10 y permitiendo priorizar la respuesta si la severidad de la amenaza es ≥ 7. <br>
-Todo los registros son guardados en bases de datos mediante integración con PostgreSQL al momento de su captura y parseo para facilitar el seguimiento, actualizándose automáticamente la base de datos en la medida en que cada registro es procesado por la IA.
+This workflow automatically extracts Linux network logs based on a schedule trigger. The logs are parsed with Python to extract data and signatures that are then given to an AI agent, analysing every log and asigning a risk level to each one. The AI agent's output is then saved in a database via integration with PostgreSQL for audit purposes 
 <br>
-Características
+Highlights 💥
 <br>
-💻Ingesta automatizada de datos.<br>
-🤖Integración con IA autohospedada para identificar anomalías que el análisis por firmas convencional no detecta mediante análisis de registros.<br>
-🛡️100% self-hosted para entornos que requieren privacidad.<br>
-🐍Parsing inteligente con Python para limpieza e identificación de datos clave.<br>
-🐘Almacenamiento pre y post procesamiento en PostgreSQL para realizar auditorías y mantener integridad.
+💻 Automatic data extraction.<br>
+🤖 self-hosted AI that identifies anomalies that bypass conventional signature-based detection<br>
+🛡️ 100% self-hosted (orchestraton and AI) to maximize privacy and data security.<br>
+🐍 Noise reduction by smart parsing to recover key data.<br>
+🐘 Pre and post-processing storage in PostgreSQL to perform audits and maintain integrity.
 <br> <br>
 
-**🍯Honeypot integrado con análisis de LLM** <br>
-Este proyecto es infraestructura SOAR para capturar intentos de intrusión mediante una trampa informática aislada en Docker basada en Flask y análisis con IA autohospedada. <br>
-Se despliega un señuelo que simula ser un log-in administrativo para atraer a atacantes que hayan infiltrado el sistema. Datos clave del atacante como su IP y sus inputs en la trampa son capturados y enviados a N8N mediante webhook para orquestar su procesamiento con Llama3, que recoge el input y lo analiza. La IA genera un output en formato JSON con el tipo de ataque detectado, el nivel de riesgo que representa al sistema y una sugerencia de solución. <br>
-La información del atacante y el análisis de la IA son guardados en bases de datos mediante integración con PostreSQL para poder auditar el trabajo de la IA y los ataques detectados. <br>
-Además, se automatiza la notificación via Email al equipo SOC con los datos del atacante para brindar mayor información y dar alerta y se bloquea automáticamente la IP del atacante.
+**🍯Honeypot with LLM analysis** <br>
+This project is SOAR infrastructure designed to capture intrusion attempts using an isolated Docker-based Flask honeypot and analyse the captured information with AI. <br>
+A decoy simulating an administrative login is deployed on the system to attract threat actors who are already on the system. Key data like IP addresses and inputs are captured and sent to the automation platform for processing. The AI agent then generates an output specifying the detected attack type, the risk level to the system and suggests remediation. <br>
+Both the attacker information and the AI analysis are stored in databases through PostgreSQL integration to audit the detected attacks and the AI's performance as a SOC analyst.
 <br>
-Características
+Furthermore, email notification to the SOC team are automated to provide real-time alerts and detailed attacker data, while also blocking the attacker's IP address.
 <br>
-🛡️100% self-hosted para entornos que requieren privacidad.<br>
-🐍Parsing con Python para limpieza e identificación de datos clave.<br>
-🐘Almacenamiento vía PostgreSQL para realizar auditorías y mantener integridad.
-🏰 Registros persistentes de cada intrusión, alertas via Gmail API para alertar al equipo SOC y bloqueo automático de IPs para reducción de MTTR y defensa en tiempo real
+Highlights 💥
+<br>
+🤖 self-hosted AI that helps contain the threat<br>
+🛡️ 100% self-hosted (orchestraton and AI) to maximize privacy and data security.<br>
+🐍 Noise reduction by smart parsing to recover key data.<br>
+🐘 Persistent storage in PostgreSQL, allowing audit and threat hunting.
+🏰 Persistent logs for every intrusion, alerts via Gmail API to notify the SOC team, and automated IP blocking to reduce Mean Time To Respond (MTTR) and enable real-time defense.
+
+**💻Automated Static & Dinamic File Analysis ** <br>
+This project is a DFIR systed designed to perform automated multi-layered file analysis using Python (integrating various INFOSEC-specific Python libraries), Docker Sandboxing and LLM orchestration. <br>
+A Python-based watchdog service monitors specific system directories in real-time. Upon detection of a new file it executes a dual-stage analysis: Static (Calculating Shannon entropy, signature-based detection based on YARA rules and checking existing databases) and dynamic (executing the file in an isolated environment to capture behavioral logs). The intel is sent via webhook to N8N, where the AI agent evaluates the collected forensic data. The system determines the threat level and stores the results in SQL. If a threat is in fact detected, a secondary AI agent generates remediation steps to reduce MMTR 
+<br>
+Highlights 💥
+<br>
+🔬 Hybrid inspection for better security <br>
+🤖 self-hosted AI to interpret complex sandbox logs and identify suspicious patterns <br>
+🛡️ 100% self-hosted (orchestraton and AI) to maximize privacy and data security.<br>
+🐍 Python-driven metadata extraction  ensures high-fidelity data input for the AI. <br>
+🐘 Persistent storage in PostgreSQL for every analysis for audit and threat hunting purposes. <br>
+
