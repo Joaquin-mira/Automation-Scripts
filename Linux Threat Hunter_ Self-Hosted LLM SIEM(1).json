@@ -1,0 +1,583 @@
+{
+  "name": "Linux Threat Hunter: Self-Hosted LLM SIEM",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        80,
+        0
+      ],
+      "id": "4a9486a2-49f8-45c5-9fb9-456250de9b1d",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "create table if not exists logs_seguridad (\n  id serial primary key,\n  timestamp_captura timestamp default CURRENT_TIMESTAMP,\n  origen VARCHAR(50),\n  iporigen  text,\n  log_raw TEXT NOT NULL,\n\nestado_analisis VARCHAR(20) default 'pending',\n  es_amenaza BOOLEAN,\n  nivel_severidad INT,\n  explicacion_ia TEXT,\n  json_completo_ia JSONB\n);\n\ncreate INDEX idx_estado_analisis ON logs_seguridad(estado_analisis);",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        256,
+        -160
+      ],
+      "id": "a8a8e55b-7358-42a4-993c-0d350affd482",
+      "name": "Crear tabla si no existe",
+      "credentials": {
+        "postgres": {
+          "id": "whVr1hBPilqT5aCo",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "journalctl --since \"2 minute ago\" --no-pager -o json || true"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        256,
+        0
+      ],
+      "id": "b9f243eb-1c03-4dbf-979d-1a98006f1ea8",
+      "name": "Extraer Registros",
+      "credentials": {
+        "sshPassword": {
+          "id": "RBs2gV8ifpYpDugq",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "python",
+        "pythonCode": "import json\nimport re  # Importamos la librería para expresiones regulares\n\nssh_output = _input.item.json.get('stdout', '')\nlogs_procesados = []\n\n# Definimos el patrón para encontrar una dirección IP (IPv4)\n# Busca 4 grupos de números separados por puntos\nip_pattern = r'\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b'\n\nif ssh_output:\n  lineas = ssh_output.strip().split('\\n')\n\n  for linea in lineas:\n    if linea.strip():\n      try:\n        log_obj = json.loads(linea)\n\n        origen = log_obj.get('_COMM', 'sistema')\n        mensaje_crudo = log_obj.get('MESSAGE', '')\n        \n        # Buscamos todas las coincidencias de IPs en el mensaje\n        ips_encontradas = re.findall(ip_pattern, mensaje_crudo)\n        \n        # Si encontró alguna IP, tomamos la primera. Si no, lo dejamos vacío (None)\n        ip_detectada = ips_encontradas[0] if ips_encontradas else None\n\n        logs_procesados.append({\n          \"origen\": origen,\n          \"log_raw\": mensaje_crudo,\n          \"iporigen\": ip_detectada \n        })\n      except json.JSONDecodeError:\n        continue\n\nreturn logs_procesados"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "62da7b57-ad3b-4219-8d26-21983ba5d039",
+      "name": "Limpiar Registros"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list",
+          "cachedResultName": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "logs_seguridad",
+          "mode": "list",
+          "cachedResultName": "logs_seguridad"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "es_amenaza": false,
+            "origen": "={{ $json.origen }}",
+            "log_raw": "={{ $json.log_raw }}",
+            "iporigen": "={{ $json.iporigen }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "timestamp_captura",
+              "displayName": "timestamp_captura",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "origen",
+              "displayName": "origen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "iporigen",
+              "displayName": "iporigen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "log_raw",
+              "displayName": "log_raw",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado_analisis",
+              "displayName": "estado_analisis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "es_amenaza",
+              "displayName": "es_amenaza",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nivel_severidad",
+              "displayName": "nivel_severidad",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "explicacion_ia",
+              "displayName": "explicacion_ia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "json_completo_ia",
+              "displayName": "json_completo_ia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        576,
+        0
+      ],
+      "id": "d6b6caed-4a5d-449f-8474-bcb89600d56b",
+      "name": "Guardar registros ",
+      "credentials": {
+        "postgres": {
+          "id": "whVr1hBPilqT5aCo",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Eres un agente de IA experto en ciberseguridad. Vas a analizar el siguiente log del sistema Linux y determinar si hay amenazas.\nTu output no debe contener nada adicional, debe ser estrictamente un objeto JSON sin markdown con las siguientes claves:\n\nes_amenaza: boolean\nnivel_severidad: integer (1-10) donde 10 es el nivel mas alto\nexplicación: string (breve resumen de por qué\n\nanalisis_completo: object (cualquier detalle tecnico extra)\nel log es el siguiente:  {{ $json.log_raw }}\n\nrecuerda, el output debe ser SOLO el json que se te pide",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        880,
+        0
+      ],
+      "id": "86553453-3327-486e-9ab6-3c61951ccd7a",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "llama3-12hilos:latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        880,
+        176
+      ],
+      "id": "7acd3897-b2b2-45e2-a034-c65ebbae9bde",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "l4sYS6BjEynul4sw",
+          "name": "OllamaThinkpad"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, log_raw \nfrom logs_seguridad \nwhere estado_analisis = 'pending'\nLIMIT 50;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        736,
+        0
+      ],
+      "id": "9e2aab84-2431-4b6e-b00c-169752a7c58f",
+      "name": "Extraer Registros no procesados",
+      "executeOnce": true,
+      "credentials": {
+        "postgres": {
+          "id": "whVr1hBPilqT5aCo",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "\nlet textoRaw = $input.item.json.output || \"\";\n\nlet textoLimpio = textoRaw.replace(/```json/g, '').replace(/```/g, '').trim();\n\nlet resultado = {};\ntry {\n  resultado = JSON.parse(textoLimpio);\n\n} catch (error) {\n\n  try {\n    resultado = JSON.parse(textoLimpio + \"}\");\n\n  } catch (error2) {\n    resultado = {\n      es_amenaza: false,\n      nivel_severidad: 0,\n      explicación: \"Error de sintaxis JSON irreparable\",\n      analisis_completo: {},\n      raw_error: textoLimpio\n    };\n  }\n}\nreturn {\n  json: {\n    ...resultado,\n    id: $input.item.json.id \n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        0
+      ],
+      "id": "8ce05a91-4622-4a25-b69a-b192c7ed0e71",
+      "name": "convertir el output en objetos separados"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "logs_seguridad",
+          "mode": "list",
+          "cachedResultName": "logs_seguridad"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "es_amenaza": "={{ $json.es_amenaza }}",
+            "estado_analisis": "Completed",
+            "nivel_severidad": "={{ $json.nivel_severidad }}",
+            "explicacion_ia": "={{ $('AI Agent').item.json.output }}",
+            "id": "={{ $('Extraer Registros no procesados').item.json.id }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "timestamp_captura",
+              "displayName": "timestamp_captura",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "origen",
+              "displayName": "origen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "log_raw",
+              "displayName": "log_raw",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado_analisis",
+              "displayName": "estado_analisis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "es_amenaza",
+              "displayName": "es_amenaza",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nivel_severidad",
+              "displayName": "nivel_severidad",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "explicacion_ia",
+              "displayName": "explicacion_ia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "json_completo_ia",
+              "displayName": "json_completo_ia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1344,
+        0
+      ],
+      "id": "ce251ddf-700b-473e-8d78-f178e326312c",
+      "name": "Actualizar los registros",
+      "credentials": {
+        "postgres": {
+          "id": "whVr1hBPilqT5aCo",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.nivel_severidad }}",
+                    "rightValue": 7,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    },
+                    "id": "c95d3c4a-e9bc-4861-a12a-d6d4782f4329"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Alerta Positiva"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        1344,
+        -208
+      ],
+      "id": "2dbc3080-49a6-4f35-b297-a82edb91ff9c",
+      "name": "Switch"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extraer Registros",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear tabla si no existe": {
+      "main": [
+        []
+      ]
+    },
+    "Extraer Registros": {
+      "main": [
+        [
+          {
+            "node": "Limpiar Registros",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limpiar Registros": {
+      "main": [
+        [
+          {
+            "node": "Guardar registros ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar registros ": {
+      "main": [
+        [
+          {
+            "node": "Extraer Registros no procesados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Registros no procesados": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "convertir el output en objetos separados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "convertir el output en objetos separados": {
+      "main": [
+        [
+          {
+            "node": "Actualizar los registros",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar los registros": {
+      "main": [
+        []
+      ]
+    },
+    "Switch": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "9aef8b07-8983-4f64-91a7-867ef6d08984",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "09e853f660e1570a47f9dcf1b1317f3cfe7883f48e448d11c823219fdfcd32a5"
+  },
+  "id": "CCvJJ05rLPoULBE5",
+  "tags": []
+}
