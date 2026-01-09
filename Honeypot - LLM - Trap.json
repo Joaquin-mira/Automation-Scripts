@@ -1,0 +1,345 @@
+{
+  "name": "Honeypot - LLM - Trap",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "analisis-ataque",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "cc56164c-d722-4bb1-b959-267ac17c32dd",
+      "name": "Webhook",
+      "webhookId": "d3f21e42-99be-43e6-9fca-211190d691f0"
+    },
+    {
+      "parameters": {
+        "model": "llama3-12hilos:latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        208,
+        176
+      ],
+      "id": "d1ce1a10-1cac-4f60-95f6-ad7a57c1db23",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "l4sYS6BjEynul4sw",
+          "name": "OllamaThinkpad"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Sos un agente de IA que va a recibir información respecto a inicios de sesión en una trampa informática (o honeypot). Debes procesar esta información para detectar que tipo de ataque informático está realizando el atacante.\n\nla información es la siguiente:\n\nnombre de usuario colocado por el atacante:  {{ $json.body.user_attempt }}\n\ncontraseña colocada por el atacante: {{ $json.body.pass_attempt }}\n\nip de origen: {{ $json.body.source_ip }}\n\nuser agent: {{ $json.body.user_agent }}\n\ncontesta solamente con el nombre del tipo de ataque detectado, un breve texto sobre como solucionarlo (20-30 palabras) y un valor numérico (1-10, siendo 10 el más alto) que mida el nivel de riesgo del ataque, no expliques ni agregues nada a la respuesta.\n\nla respuesta debe ser estrictamente en formato JSON de la siguiente forma:\nattack_type: el tipo de ataque\nrisk_level: el nivel de riesgo del ataque\nsolution: el texto sobre como solucionarlo",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        208,
+        0
+      ],
+      "id": "9e97ea54-92b0-4d5a-87a0-c05e8fc9d8fa",
+      "name": "Detección de Amenaza"
+    },
+    {
+      "parameters": {
+        "jsCode": "const textoCrudo = $input.first().json.output;\ntry {\n  const objetoLimpio = JSON.parse(textoCrudo);\n\n    return {\n  ataque: objetoLimpio.attack_type,\n  solucion: objetoLimpio.solution,\n  nivel_riesgo: objetoLimpio.risk_level\n};\n  } catch (error) {\n    return {\n      error: \"No se pudo procesar el JSON\",\n      detalle: error.message\n    }\n  }\n  "
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        0
+      ],
+      "id": "fe087517-2c6f-4540-98d1-2ba55d86edec",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "create table if not exists logs_honeypot (\n  id serial primary key,\n  timestamp_captura timestamp default CURRENT_TIMESTAMP,\n  iporigen  text,\n  usuarioOrigen text,\n  usuarioInput text,\n  contrasenaInput text,\n  tipoAtaque text, \n  nivelSeveridad int,\n  solucionIA text\n  )\n  ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        128,
+        -176
+      ],
+      "id": "366ba2af-32d4-467b-a473-7b845fb3ccee",
+      "name": "Create table if not exists",
+      "credentials": {
+        "postgres": {
+          "id": "whVr1hBPilqT5aCo",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "logs_honeypot",
+          "mode": "list",
+          "cachedResultName": "logs_honeypot"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "nivelseveridad": "={{ $json.nivel_riesgo }}",
+            "solucionia": "={{ $json.solucion }}",
+            "tipoataque": "={{ $json.ataque }}",
+            "iporigen": "={{ $('Webhook').item.json.body.source_ip }}",
+            "usuarioorigen": "={{ $('Webhook').item.json.headers['user-agent'] }}",
+            "usuarioinput": "={{ $('Webhook').item.json.body.user_attempt }}",
+            "contrasenainput": "={{ $('Webhook').item.json.body.pass_attempt }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "timestamp_captura",
+              "displayName": "timestamp_captura",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "iporigen",
+              "displayName": "iporigen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "usuarioorigen",
+              "displayName": "usuarioorigen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "usuarioinput",
+              "displayName": "usuarioinput",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "contrasenainput",
+              "displayName": "contrasenainput",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "tipoataque",
+              "displayName": "tipoataque",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nivelseveridad",
+              "displayName": "nivelseveridad",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "solucionia",
+              "displayName": "solucionia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1024,
+        0
+      ],
+      "id": "2fb059a3-5a34-4656-baea-0dd6e7b37a88",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "whVr1hBPilqT5aCo",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "work.email.example@gmail.com",
+        "subject": "ATAQUE DETECTADO",
+        "message": "=Se ha detectado una intrusión en el honeypot desplegado en el equipo.\nINFORMACION:\n\nATAQUE: {{ $json.ataque }}\nNIVEL DE RIESGO: {{ $json.nivel_riesgo }}\nSOLUCION AUTOMATIZADA: {{ $json.solucion }}\n\nIP origen: {{ $('Webhook').item.json.body.source_ip }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1024,
+        -336
+      ],
+      "id": "a0409261-0625-4591-880a-ddf6d8bf35d4",
+      "name": "Send a message",
+      "webhookId": "526dda42-6e62-4b39-a98f-bf8580cbc46a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "wqyRhhJ0d1tFWN2e",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=sudo ufw insert 1 deny from {{ $('Webhook').item.json.body.source_ip }} comment 'actividad sospechosa bloqueada'"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        1024,
+        256
+      ],
+      "id": "bd83ce95-f4f7-4aca-8dd1-92c6d6535f9b",
+      "name": "Execute a command",
+      "credentials": {
+        "sshPassword": {
+          "id": "RBs2gV8ifpYpDugq",
+          "name": "SSH Password account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Detección de Amenaza",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Detección de Amenaza",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detección de Amenaza": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Execute a command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert rows in a table": {
+      "main": [
+        []
+      ]
+    },
+    "Send a message": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d34c2fcf-8f96-4ca3-8b17-0a7e9c73361b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "09e853f660e1570a47f9dcf1b1317f3cfe7883f48e448d11c823219fdfcd32a5"
+  },
+  "id": "8Wzcx1egjFcIu9WW",
+  "tags": []
+}
