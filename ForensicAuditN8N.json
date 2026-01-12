@@ -1,0 +1,310 @@
+{
+  "name": "ForensicAuditN8N",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "create table if not exists facturas_auditoria2 (\n\ttransaccion_id INT primary key,\n\tfecha DATE,\n\templeado_id VARCHAR(10),\n\tproveedor_id VARCHAR(10),\n\tmonto DECIMAL (10, 2),\n\tcategoria VARCHAR (50)\n\t\n);\n\ncreate table if not exists hallazgos_forenses2 (\n\tid SERIAL primary key,\n\ttipo_alerta text,\n\templeado_id VARCHAR(10),\n\tproveedor_id VARCHAR(10),\n\tmonto_total_acumulado DECIMAL (15, 2),\n\tfecha_evento DATE,\n\tdetalle TEXT\n\t\n);",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        -240
+      ],
+      "id": "2826a0fb-7524-43cd-87b4-7e720c0779f7",
+      "name": "Create tables",
+      "credentials": {
+        "postgres": {
+          "id": "whVr1hBPilqT5aCo",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert Forensic Auditor specializing in Anti-Money Laundering (AML) and corporate fraud prevention. You will receive a list of suspicious 'Split Purchase' transactions.\n\nYour objective is to analyze the list, distinguish between actual fraud cases and noise or false positives, and generate an executive summary.\n\nThe list is:\n{{ $json.informe_crudo }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        624,
+        0
+      ],
+      "id": "c928ccb4-473d-4b54-9887-fdaaf7b66412",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "llama3-12hilos:latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        624,
+        144
+      ],
+      "id": "550bcdef-da16-4d97-91e5-9c6a15b8773b",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "l4sYS6BjEynul4sw",
+          "name": "OllamaThinkpad"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH analisis_fragmentacion AS (\n    SELECT \n        empleado_id,\n        proveedor_id,\n        fecha,\n        COUNT(*) AS total_facturas,\n        SUM(monto) AS monto_acumulado,\n        STRING_AGG(transaccion_id::text, ', ') AS folios_relacionados\n    FROM facturas_auditoria2\n    GROUP BY empleado_id, proveedor_id, fecha\n)\nINSERT INTO hallazgos_forenses2 (tipo_alerta, empleado_id, proveedor_id, monto_total_acumulado, fecha_evento, detalle)\nSELECT \n    'Alerta: Split purchase detectado',\n    empleado_id::VARCHAR,\n    proveedor_id::VARCHAR,\n    monto_acumulado::DECIMAL,\n    fecha::DATE,\n    'Se detectaron ' || total_facturas || ' facturas fragmentadas. Folios: ' || folios_relacionados\nFROM analisis_fragmentacion\nWHERE total_facturas > 1 \n  AND monto_acumulado > 5000;\nselect * from hallazgos_forenses2;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        208,
+        0
+      ],
+      "id": "dcf45389-537e-438b-997a-0d948d3a7ba5",
+      "name": "audit 2",
+      "credentials": {
+        "postgres": {
+          "id": "whVr1hBPilqT5aCo",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nlet listado = \"Listado de Hallazgos de Split Purchase:\\n\\n\";\n\nrows.forEach((item, index) => {\n  const data = item.json;\n  \n  listado += `Caso #${index + 1}:\\n`;\n  listado += `- Empleado: ${data.empleado_id}\\n`;\n  listado += `- Proveedor: ${data.proveedor_id}\\n`;\n  listado += `- Fecha: ${data.fecha_evento}\\n`; \n  listado += `- Monto Total: $${data.monto_total_acumulado}\\n`; \n  listado += `- Análisis Forense: ${data.detalle}\\n`; \n  listado += `--------------------------\\n`;\n});\n\nreturn { informe_crudo: listado };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "bf71d3be-2316-41d7-9045-4ce5f4c82a2b",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "b78e69d0-c30f-4eec-99a0-5f387fec92f7",
+      "name": "When clicking ‘Execute workflow’"
+    }
+  ],
+  "pinData": {
+    "audit 2": [
+      {
+        "json": {
+          "id": 1,
+          "tipo_alerta": "Alerta: Split purchase detectado",
+          "empleado_id": "EMP-033",
+          "proveedor_id": "PROV-048",
+          "monto_total_acumulado": "5222.38",
+          "fecha_evento": "2025-12-11T00:00:00.000Z",
+          "detalle": "Se detectaron 2 facturas fragmentadas. Folios: 635, 4304"
+        }
+      },
+      {
+        "json": {
+          "id": 2,
+          "tipo_alerta": "Alerta: Split purchase detectado",
+          "empleado_id": "EMP-035",
+          "proveedor_id": "PROV-040",
+          "monto_total_acumulado": "6441.50",
+          "fecha_evento": "2025-10-22T00:00:00.000Z",
+          "detalle": "Se detectaron 2 facturas fragmentadas. Folios: 265, 3788"
+        }
+      },
+      {
+        "json": {
+          "id": 3,
+          "tipo_alerta": "Alerta: Split purchase detectado",
+          "empleado_id": "EMP-029",
+          "proveedor_id": "PROV-014",
+          "monto_total_acumulado": "9336.89",
+          "fecha_evento": "2025-12-28T00:00:00.000Z",
+          "detalle": "Se detectaron 3 facturas fragmentadas. Folios: 272, 2708, 4755"
+        }
+      },
+      {
+        "json": {
+          "id": 4,
+          "tipo_alerta": "Alerta: Split purchase detectado",
+          "empleado_id": "EMP-004",
+          "proveedor_id": "PROV-021",
+          "monto_total_acumulado": "6401.26",
+          "fecha_evento": "2025-11-06T00:00:00.000Z",
+          "detalle": "Se detectaron 2 facturas fragmentadas. Folios: 925, 1327"
+        }
+      },
+      {
+        "json": {
+          "id": 5,
+          "tipo_alerta": "Alerta: Split purchase detectado",
+          "empleado_id": "EMP-006",
+          "proveedor_id": "PROV-041",
+          "monto_total_acumulado": "5835.71",
+          "fecha_evento": "2025-11-03T00:00:00.000Z",
+          "detalle": "Se detectaron 2 facturas fragmentadas. Folios: 4229, 4623"
+        }
+      },
+      {
+        "json": {
+          "id": 6,
+          "tipo_alerta": "Alerta: Split purchase detectado",
+          "empleado_id": "EMP-050",
+          "proveedor_id": "PROV-013",
+          "monto_total_acumulado": "7160.82",
+          "fecha_evento": "2025-05-15T00:00:00.000Z",
+          "detalle": "Se detectaron 2 facturas fragmentadas. Folios: 3694, 4862"
+        }
+      },
+      {
+        "json": {
+          "id": 7,
+          "tipo_alerta": "Alerta: Split purchase detectado",
+          "empleado_id": "EMP-005",
+          "proveedor_id": "PROV-038",
+          "monto_total_acumulado": "6900.99",
+          "fecha_evento": "2025-02-26T00:00:00.000Z",
+          "detalle": "Se detectaron 5 facturas fragmentadas. Folios: 9015, 9016, 9017, 9018, 9019"
+        }
+      },
+      {
+        "json": {
+          "id": 8,
+          "tipo_alerta": "Alerta: Split purchase detectado",
+          "empleado_id": "EMP-005",
+          "proveedor_id": "PROV-038",
+          "monto_total_acumulado": "6794.99",
+          "fecha_evento": "2025-04-22T00:00:00.000Z",
+          "detalle": "Se detectaron 5 facturas fragmentadas. Folios: 9005, 9006, 9007, 9008, 9009"
+        }
+      },
+      {
+        "json": {
+          "id": 9,
+          "tipo_alerta": "Alerta: Split purchase detectado",
+          "empleado_id": "EMP-026",
+          "proveedor_id": "PROV-013",
+          "monto_total_acumulado": "7240.44",
+          "fecha_evento": "2025-01-04T00:00:00.000Z",
+          "detalle": "Se detectaron 2 facturas fragmentadas. Folios: 1277, 4408"
+        }
+      },
+      {
+        "json": {
+          "id": 10,
+          "tipo_alerta": "Alerta: Split purchase detectado",
+          "empleado_id": "EMP-005",
+          "proveedor_id": "PROV-038",
+          "monto_total_acumulado": "5876.99",
+          "fecha_evento": "2025-09-23T00:00:00.000Z",
+          "detalle": "Se detectaron 5 facturas fragmentadas. Folios: 9020, 9021, 9022, 9023, 9024"
+        }
+      },
+      {
+        "json": {
+          "id": 11,
+          "tipo_alerta": "Alerta: Split purchase detectado",
+          "empleado_id": "EMP-005",
+          "proveedor_id": "PROV-038",
+          "monto_total_acumulado": "6326.99",
+          "fecha_evento": "2025-04-28T00:00:00.000Z",
+          "detalle": "Se detectaron 5 facturas fragmentadas. Folios: 9010, 9011, 9012, 9013, 9014"
+        }
+      },
+      {
+        "json": {
+          "id": 12,
+          "tipo_alerta": "Alerta: Split purchase detectado",
+          "empleado_id": "EMP-005",
+          "proveedor_id": "PROV-038",
+          "monto_total_acumulado": "5576.99",
+          "fecha_evento": "2025-05-21T00:00:00.000Z",
+          "detalle": "Se detectaron 5 facturas fragmentadas. Folios: 9025, 9026, 9027, 9028, 9029"
+        }
+      },
+      {
+        "json": {
+          "id": 13,
+          "tipo_alerta": "Alerta: Split purchase detectado",
+          "empleado_id": "EMP-005",
+          "proveedor_id": "PROV-038",
+          "monto_total_acumulado": "6629.99",
+          "fecha_evento": "2025-01-28T00:00:00.000Z",
+          "detalle": "Se detectaron 5 facturas fragmentadas. Folios: 9000, 9001, 9002, 9003, 9004"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "audit 2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "audit 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "20c07ddc-236f-4e44-9c28-332f19043085",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "09e853f660e1570a47f9dcf1b1317f3cfe7883f48e448d11c823219fdfcd32a5"
+  },
+  "id": "mF64kgg9Dmsdc5Rm",
+  "tags": []
+}
