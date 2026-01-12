@@ -48,7 +48,7 @@ Highlights 💥
 
 **📊AI-Powered Financial Forensic Auditor**
 <br>
-This project is a financial fraud detection system focused on identifying "Split Purchase" schemes. It integrates synthetic data generation,  SQL analytical querying, and AI-driven forensics. The system uses Python scripting to seed a PostgreSQL database with thousands of legitimate transactions and specific "planted" fraud cases designed to bypass standard audit thresholds (in this case, the threshold is that ammounts greater than $5000 must be reviewed and approved). An n8n pipeline then orchestrates the detection phase using Common Table Expressions (CTE) to reconstruct fragmented transactions. Finally, a self-hosted AI agent (Llama 3) acts as a Forensic Auditor to analyze the flagged data, and helps distinguish between administrative noise and malicious intent to generate an executive summary.
+This project is a financial fraud detection system focused on identifying "Split Purchase" schemes. It integrates random data generation,  visualization in VS Code, SQL analytical querying, and AI-driven forensics. The system uses Python scripting to seed a PostgreSQL database with thousands of legitimate transactions and specific "planted" fraud cases designed to bypass standard audit thresholds (in this case, the threshold is that ammounts greater than $5000 must be reviewed and approved). An n8n pipeline then orchestrates the detection phase using Common Table Expressions (CTE) to reconstruct fragmented transactions. Finally, a self-hosted AI agent (Llama 3) acts as a Forensic Auditor to analyze the flagged data, and helps distinguish between administrative noise and malicious intent to generate an executive summary.
 <br>
 Highlights 💥
 <br>
